@@ -112,7 +112,10 @@ async function getModels() {
             ...defaultMeta.pricing,
             prompt: apiModel.pricing?.prompt || defaultMeta.pricing.prompt,
             completion: apiModel.pricing?.completion || defaultMeta.pricing.completion
-          }
+          },
+          voices: apiModel.supported_voices && apiModel.supported_voices.length > 0
+            ? apiModel.supported_voices
+            : defaultMeta.voices
         };
       } else {
         // Fallback to defaults

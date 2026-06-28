@@ -205,7 +205,47 @@ function populateVoices(modelId) {
     const opt = document.createElement('option');
     if (typeof voice === 'string') {
       opt.value = voice;
-      opt.textContent = voice;
+      
+      // Try to format Kokoro/Voxtral voice names nicely
+      let displayName = voice;
+      if (modelId === 'hexgrad/kokoro-82m') {
+        const parts = voice.split('_');
+        if (parts.length >= 2) {
+          const prefix = parts[0];
+          const rawName = parts[1];
+          const name = rawName.charAt(0).toUpperCase() + rawName.slice(1);
+          const langMap = {
+            'af': 'US Female',
+            'am': 'US Male',
+            'bf': 'UK Female',
+            'bm': 'UK Male',
+            'ef': 'ES Female',
+            'em': 'ES Male',
+            'ff': 'FR Female',
+            'hf': 'HI Female',
+            'hm': 'HI Male',
+            'if': 'IT Female',
+            'im': 'IT Male',
+            'jf': 'JA Female',
+            'jm': 'JA Male',
+            'pf': 'PT Female',
+            'pm': 'PT Male',
+            'zf': 'ZH Female',
+            'zm': 'ZH Male'
+          };
+          const langLabel = langMap[prefix] || prefix.toUpperCase();
+          displayName = `${langLabel}: ${name}`;
+        }
+      } else if (modelId === 'mistralai/voxtral-mini-tts-2603') {
+        const parts = voice.split('_');
+        if (parts.length >= 3) {
+          const lang = parts[0].toUpperCase();
+          const name = parts[1].charAt(0).toUpperCase() + parts[1].slice(1);
+          const tone = parts[2].charAt(0).toUpperCase() + parts[2].slice(1);
+          displayName = `${lang}: ${name} (${tone})`;
+        }
+      }
+      opt.textContent = displayName;
     } else {
       opt.value = voice.id;
       opt.textContent = voice.name;
