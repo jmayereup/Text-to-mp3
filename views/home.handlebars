@@ -1,0 +1,229 @@
+<div class="app-container">
+  <!-- Header -->
+  <header class="app-header">
+    <div class="logo-area">
+      <span class="material-icons-round logo-icon">graphic_eq</span>
+      <h1 class="app-title">VoiceForge <span class="accent-text">TTS</span></h1>
+    </div>
+    <p class="app-subtitle">Convert text to highly-compressed MP3 audio using advanced OpenRouter speech models</p>
+  </header>
+
+  <!-- Main Interface Grid -->
+  <main class="app-main-grid">
+    <!-- Left Column: Input and Configuration Controls -->
+    <section class="controls-section glass-panel">
+      <form id="tts-form" onsubmit="handleFormSubmit(event)">
+        <!-- Text Input -->
+        <div class="form-group">
+          <label for="text-input" class="form-label">
+            <span>Input Text</span>
+            <span class="char-count" id="char-counter">0 characters</span>
+          </label>
+          <textarea 
+            id="text-input" 
+            name="text" 
+            placeholder="Type or paste the text you want to convert to speech here..." 
+            required
+            rows="6"
+            class="form-input text-area"
+            oninput="updateCharCounter(this)"
+          ></textarea>
+          <!-- Special tag tip for Gemini -->
+          <p class="input-tip hidden" id="gemini-tip">
+            <span class="material-icons-round">info</span>
+            Tip: You can use inline speech tags like <code>[whispers]</code>, <code>[laughs]</code>, or <code>[excited]</code> in your text.
+          </p>
+        </div>
+
+        <!-- Model Selection -->
+        <div class="form-group">
+          <label class="form-label">Select Speech Model</label>
+          <div class="models-grid" id="models-grid-container">
+            {{#each models}}
+            <div 
+              class="model-card" 
+              data-model-id="{{@key}}" 
+              onclick="selectModel('{{@key}}')"
+              id="model-card-{{@index}}"
+            >
+              <div class="model-card-header">
+                <h3 class="model-name">{{this.name}}</h3>
+                <span class="pricing-badge {{this.pricing.unit}}-based">
+                  {{#if (eq this.pricing.unit "token")}}
+                    ${{perMillion this.pricing.completion}}/M output tokens
+                  {{else}}
+                    ${{perMillion this.pricing.prompt}}/M characters
+                  {{/if}}
+                </span>
+              </div>
+              <p class="model-desc">{{this.description}}</p>
+              <div class="model-card-footer">
+                <span class="model-id-label">{{@key}}</span>
+                <span class="pricing-secondary-label">
+                  {{#if (eq this.pricing.unit "token")}}
+                    Input: ${{perMillion this.pricing.prompt}}/M tokens
+                  {{else}}
+                    Pricing: Character-based
+                  {{/if}}
+                </span>
+              </div>
+            </div>
+            {{/each}}
+          </div>
+          <!-- Hidden input to hold selected model ID -->
+          <input type="hidden" name="modelId" id="selected-model-id" required>
+        </div>
+
+        <!-- Voice Selection and R2 Upload Option -->
+        <div class="controls-row">
+          <div class="form-group voice-group">
+            <label for="voice-select" class="form-label">Select Voice</label>
+            <select id="voice-select" name="voice" class="form-input select-input" required>
+              <option value="" disabled selected>Select a model first</option>
+            </select>
+          </div>
+
+          <div class="form-group r2-group">
+            <label class="form-label">Cloudflare R2 Storage</label>
+            <div class="r2-toggle-container">
+              <label class="switch">
+                <input 
+                  type="checkbox" 
+                  id="r2-toggle" 
+                  name="pushToR2" 
+                  value="true"
+                  {{#unless r2Configured}}disabled{{/unless}}
+                >
+                <span class="slider round"></span>
+              </label>
+              <div class="r2-text">
+                <span class="r2-label-text">Push to R2 Bucket</span>
+                <span class="r2-status-sub {{#if r2Configured}}active{{else}}inactive{{/if}}">
+                  {{#if r2Configured}}
+                    Configured and ready
+                  {{else}}
+                    Not configured (.env keys missing)
+                  {{/if}}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Submit Button -->
+        <button type="submit" class="submit-btn" id="submit-button" disabled>
+          <span class="material-icons-round">play_arrow</span>
+          <span>Generate Speech</span>
+        </button>
+      </form>
+    </section>
+
+    <!-- Right Column: Generation Result and History -->
+    <section class="output-section">
+      <!-- Conversion Results Container -->
+      <div class="result-container glass-panel" id="result-panel">
+        <div class="panel-placeholder" id="result-placeholder">
+          <span class="material-icons-round placeholder-icon">audiotrack</span>
+          <h3>Ready for Conversion</h3>
+          <p>Configure your model and input text, then hit 'Generate Speech' to begin.</p>
+        </div>
+
+        <!-- Loading State -->
+        <div class="loading-state hidden" id="result-loading">
+          <div class="spinner-ring"><div></div><div></div><div></div><div></div></div>
+          <h3>Synthesizing Voice...</h3>
+          <p>Calling OpenRouter APIs & compressing MP3 stream on the server.</p>
+        </div>
+
+        <!-- Success Output -->
+        <div class="success-output hidden" id="result-success">
+          <div class="success-header">
+            <span class="material-icons-round success-icon">check_circle</span>
+            <h3>Speech Generated Successfully!</h3>
+          </div>
+          
+          <div class="audio-player-wrapper">
+            <audio id="audio-element" controls></audio>
+          </div>
+
+          <!-- Stats Grid -->
+          <div class="stats-grid">
+            <div class="stat-box">
+              <span class="stat-val" id="stat-original">-</span>
+              <span class="stat-lbl">Original Size</span>
+            </div>
+            <div class="stat-box">
+              <span class="stat-val" id="stat-compressed">-</span>
+              <span class="stat-lbl">Compressed Size</span>
+            </div>
+            <div class="stat-box accent-box">
+              <span class="stat-val" id="stat-ratio">-</span>
+              <span class="stat-lbl">Size Saved</span>
+            </div>
+            <div class="stat-box">
+              <span class="stat-val" id="stat-cost">-</span>
+              <span class="stat-lbl">Est. API Cost</span>
+            </div>
+          </div>
+
+          <!-- Actions and URLs -->
+          <div class="success-actions">
+            <a id="download-link" href="#" class="action-btn download-btn" download>
+              <span class="material-icons-round">download</span>
+              <span>Download MP3</span>
+            </a>
+
+            <!-- R2 Public URL -->
+            <div class="r2-link-container hidden" id="r2-link-box">
+              <div class="r2-link-header">
+                <span class="material-icons-round">cloud_done</span>
+                <span>Uploaded to Cloudflare R2</span>
+              </div>
+              <div class="r2-link-input-group">
+                <input type="text" id="r2-url-display" readonly class="r2-url-input">
+                <button type="button" class="copy-btn" onclick="copyR2Url()" title="Copy Link">
+                  <span class="material-icons-round" id="copy-icon">content_copy</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- R2 Warning / Errors -->
+            <div class="error-box hidden" id="r2-error-box">
+              <span class="material-icons-round">warning</span>
+              <span class="error-msg-text" id="r2-error-text"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Failure Output -->
+        <div class="error-output hidden" id="result-error">
+          <span class="material-icons-round error-icon">error</span>
+          <h3>Generation Failed</h3>
+          <p class="error-desc" id="error-message">Unknown error occurred during processing.</p>
+          <button type="button" class="action-btn retry-btn" onclick="retryFormSubmit()">
+            <span class="material-icons-round">replay</span>
+            <span>Retry Conversion</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- History Panel -->
+      <div class="history-panel glass-panel">
+        <div class="history-header">
+          <span class="material-icons-round">history</span>
+          <h2>Recent Generations</h2>
+          <button type="button" class="clear-history-btn" onclick="clearHistory()">Clear All</button>
+        </div>
+        <div class="history-list" id="history-items-list">
+          <p class="history-placeholder">No recent generations. Converted files will appear here.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- Inject models and voices lists to client script -->
+<script>
+  // Raw models configuration parsed from Express
+  const OPENROUTER_MODELS = {{{json models}}};
+</script>
