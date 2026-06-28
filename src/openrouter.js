@@ -19,9 +19,28 @@ const DEFAULT_MODELS = {
       { id: 'am_adam', name: 'US Male: Adam' },
       { id: 'am_michael', name: 'US Male: Michael' },
       { id: 'bf_emma', name: 'UK Female: Emma' },
-      { id: 'bm_george', name: 'UK Male: George' }
+      { id: 'bm_george', name: 'UK Male: George' },
+      { id: 'ef_dora', name: 'ES Female: Dora' },
+      { id: 'em_alex', name: 'ES Male: Alex' },
+      { id: 'ff_siwis', name: 'FR Female: Siwis' },
+      { id: 'if_sara', name: 'IT Female: Sara' },
+      { id: 'im_nicola', name: 'IT Male: Nicola' },
+      { id: 'jf_alpha', name: 'JA Female: Alpha' },
+      { id: 'pf_dora', name: 'PT Female: Dora' },
+      { id: 'zf_xiaobei', name: 'ZH Female: Xiaobei' }
     ],
-    response_format: 'pcm'
+    response_format: 'pcm',
+    supportsLanguage: true,
+    languages: [
+      { code: 'en-US', name: 'English (United States)' },
+      { code: 'en-GB', name: 'English (United Kingdom)' },
+      { code: 'es-ES', name: 'Spanish (Spain)' },
+      { code: 'fr-FR', name: 'French (France)' },
+      { code: 'it-IT', name: 'Italian (Italy)' },
+      { code: 'ja-JP', name: 'Japanese (Japan)' },
+      { code: 'pt-BR', name: 'Portuguese (Brazil)' },
+      { code: 'zh-CN', name: 'Chinese (Simplified)' }
+    ]
   },
   'mistralai/voxtral-mini-tts-2603': {
     id: 'mistralai/voxtral-mini-tts-2603',
@@ -32,8 +51,19 @@ const DEFAULT_MODELS = {
       completion: '0.000016',
       unit: 'character'
     },
-    voices: ['en_paul_neutral'],
-    response_format: 'mp3'
+    voices: [
+      { id: 'en_paul_neutral', name: 'EN: Paul (Neutral)' },
+      { id: 'gb_oliver_neutral', name: 'GB: Oliver (Neutral)' },
+      { id: 'gb_jane_neutral', name: 'GB: Jane (Neutral)' },
+      { id: 'fr_marie_neutral', name: 'FR: Marie (Neutral)' }
+    ],
+    response_format: 'mp3',
+    supportsLanguage: true,
+    languages: [
+      { code: 'en-US', name: 'English (United States)' },
+      { code: 'en-GB', name: 'English (United Kingdom)' },
+      { code: 'fr-FR', name: 'French (France)' }
+    ]
   },
   'google/gemini-3.1-flash-tts-preview': {
     id: 'google/gemini-3.1-flash-tts-preview',
@@ -94,7 +124,7 @@ async function getModels() {
   }
 
   try {
-    const res = await axios.get('https://openrouter.ai/api/v1/models');
+    const res = await axios.get('https://openrouter.ai/api/v1/models?output_modalities=speech');
     const apiModels = res.data.data || [];
     
     // Map of target models to return

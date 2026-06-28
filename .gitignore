@@ -125,3 +125,4 @@ Thumbs.db
 
 # Project specific paths
 /temp/
+/public/output/

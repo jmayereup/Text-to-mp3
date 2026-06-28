@@ -17,6 +17,8 @@ document.addEventListener('DOMContentLoaded', () => {
         langCustomInput.classList.add('hidden');
         langCustomInput.value = ''; // clear input
       }
+      // Re-populate and filter the voice dropdown based on the new language selection
+      populateVoices(selectedModelId);
     });
   }
 
@@ -187,9 +189,45 @@ function populateLanguages(modelId) {
   select.appendChild(customOpt);
 }
 
+// Helper to determine if a voice belongs to the selected language prefix
+function shouldIncludeVoice(modelId, voiceId, selectedLang) {
+  if (!selectedLang || selectedLang === 'custom') return true;
+  
+  if (modelId === 'hexgrad/kokoro-82m') {
+    const prefix = voiceId.split('_')[0];
+    const mapping = {
+      'en-US': ['af', 'am'],
+      'en-GB': ['bf', 'bm'],
+      'es-ES': ['ef', 'em'],
+      'fr-FR': ['ff'],
+      'hi-IN': ['hf', 'hm'],
+      'it-IT': ['if', 'im'],
+      'ja-JP': ['jf', 'jm'],
+      'pt-BR': ['pf', 'pm'],
+      'zh-CN': ['zf', 'zm']
+    };
+    const allowedPrefixes = mapping[selectedLang];
+    return allowedPrefixes ? allowedPrefixes.includes(prefix) : true;
+  }
+  
+  if (modelId === 'mistralai/voxtral-mini-tts-2603') {
+    const prefix = voiceId.split('_')[0];
+    const mapping = {
+      'en-US': ['en'],
+      'en-GB': ['gb'],
+      'fr-FR': ['fr']
+    };
+    const allowedPrefixes = mapping[selectedLang];
+    return allowedPrefixes ? allowedPrefixes.includes(prefix) : true;
+  }
+  
+  return true;
+}
+
 // Dynamically populate voices list based on selected model
 function populateVoices(modelId) {
   const select = document.getElementById('voice-select');
+  const oldVal = select.value;
   select.innerHTML = ''; // Reset list
   
   const modelData = OPENROUTER_MODELS[modelId];
@@ -201,7 +239,18 @@ function populateVoices(modelId) {
     return;
   }
 
+  const langGroup = document.getElementById('language-group');
+  const langSelect = document.getElementById('language-select');
+  const selectedLang = (langGroup && !langGroup.classList.contains('hidden') && langSelect) ? langSelect.value : '';
+
+  let addedCount = 0;
   modelData.voices.forEach(voice => {
+    const voiceId = typeof voice === 'string' ? voice : voice.id;
+    if (!shouldIncludeVoice(modelId, voiceId, selectedLang)) {
+      return;
+    }
+
+    addedCount++;
     const opt = document.createElement('option');
     if (typeof voice === 'string') {
       opt.value = voice;
@@ -252,6 +301,22 @@ function populateVoices(modelId) {
     }
     select.appendChild(opt);
   });
+
+  if (addedCount === 0) {
+    const opt = document.createElement('option');
+    opt.value = '';
+    opt.textContent = 'No voices available for selected language';
+    select.appendChild(opt);
+  } else {
+    // Restore old selection if still valid, otherwise select the first option
+    const options = Array.from(select.options);
+    const hasOldVal = options.some(opt => opt.value === oldVal);
+    if (hasOldVal) {
+      select.value = oldVal;
+    } else {
+      select.selectedIndex = 0;
+    }
+  }
 }
 
 // Handle Form Submission via AJAX (fetch)
