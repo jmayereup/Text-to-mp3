@@ -313,6 +313,18 @@ body {
   grid-template-columns: 1fr 1fr;
   gap: 1.5rem;
   margin-bottom: 2rem;
+  transition: grid-template-columns var(--transition-normal);
+}
+
+.controls-row.has-language {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+@media (max-width: 768px) {
+  .controls-row.has-language {
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+  }
 }
 
 @media (max-width: 640px) {

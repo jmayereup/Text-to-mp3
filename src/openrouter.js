@@ -1,31 +1,7 @@
 const axios = require('axios');
 
-// Hardcoded metadata for the 5 requested models as a fallback or default.
+// Hardcoded metadata for the requested models as a fallback or default.
 const DEFAULT_MODELS = {
-  'openai/gpt-audio-mini': {
-    id: 'openai/gpt-audio-mini',
-    name: 'OpenAI: GPT Audio Mini',
-    description: 'Cost-efficient audio model from OpenAI. Delivers clean, natural-sounding voices and excellent consistency.',
-    pricing: {
-      prompt: '0.0000006', // $0.60 / M input tokens
-      completion: '0.0000024', // $2.40 / M output tokens
-      unit: 'token'
-    },
-    voices: ['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer'],
-    response_format: 'pcm'
-  },
-  'openai/gpt-audio': {
-    id: 'openai/gpt-audio',
-    name: 'OpenAI: GPT Audio',
-    description: 'High-performance audio model from OpenAI. Upgraded decoder for superior voice quality and consistency.',
-    pricing: {
-      prompt: '0.0000025', // $2.50 / M input tokens
-      completion: '0.00001', // $10.00 / M output tokens
-      unit: 'token'
-    },
-    voices: ['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer'],
-    response_format: 'pcm'
-  },
   'hexgrad/kokoro-82m': {
     id: 'hexgrad/kokoro-82m',
     name: 'Hexgrad: Kokoro 82M',
@@ -76,7 +52,21 @@ const DEFAULT_MODELS = {
       { id: 'Fenrir', name: 'Fenrir' },
       { id: 'Aoede', name: 'Aoede' }
     ],
-    response_format: 'pcm'
+    response_format: 'pcm',
+    supportsLanguage: true,
+    languages: [
+      { code: 'en-US', name: 'English (United States)' },
+      { code: 'en-GB', name: 'English (United Kingdom)' },
+      { code: 'es-ES', name: 'Spanish (Spain)' },
+      { code: 'fr-FR', name: 'French (France)' },
+      { code: 'de-DE', name: 'German (Germany)' },
+      { code: 'it-IT', name: 'Italian (Italy)' },
+      { code: 'ja-JP', name: 'Japanese (Japan)' },
+      { code: 'ko-KR', name: 'Korean (South Korea)' },
+      { code: 'zh-CN', name: 'Chinese (Simplified)' },
+      { code: 'hi-IN', name: 'Hindi (India)' },
+      { code: 'pt-BR', name: 'Portuguese (Brazil)' }
+    ]
   }
 };
 
@@ -145,7 +135,7 @@ async function getModels() {
 /**
  * Sends a TTS generation request to OpenRouter and returns the output audio buffer.
  */
-async function generateSpeech(modelId, text, voice) {
+async function generateSpeech(modelId, text, voice, language) {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
     throw new Error('OPENROUTER_API_KEY is not configured in the environment variables.');
@@ -164,6 +154,23 @@ async function generateSpeech(modelId, text, voice) {
   // Only include voice parameter if one is selected/supported
   if (voice) {
     payload.voice = voice;
+  }
+
+  // Handle language configuration
+  if (language) {
+    if (modelId === 'google/gemini-3.1-flash-tts-preview') {
+      payload.provider = {
+        options: {
+          google: {
+            speech_config: {
+              language_code: language
+            }
+          }
+        }
+      };
+    } else {
+      payload.language = language;
+    }
   }
 
   // Standard OpenRouter Audio Speech Endpoint

@@ -17,7 +17,10 @@
         <div class="form-group">
           <label for="text-input" class="form-label">
             <span>Input Text</span>
-            <span class="char-count" id="char-counter">0 characters</span>
+            <div style="display: flex; gap: 0.5rem; align-items: center;">
+              <span class="char-count" id="char-counter">0 characters</span>
+              <span class="char-count hidden" id="cost-counter">Est: $0.000000</span>
+            </div>
           </label>
           <textarea 
             id="text-input" 
@@ -74,13 +77,30 @@
           <input type="hidden" name="modelId" id="selected-model-id" required>
         </div>
 
-        <!-- Voice Selection and R2 Upload Option -->
-        <div class="controls-row">
+        <!-- Voice, Language and R2 Configuration -->
+        <div class="controls-row" id="controls-row">
           <div class="form-group voice-group">
             <label for="voice-select" class="form-label">Select Voice</label>
             <select id="voice-select" name="voice" class="form-input select-input" required>
               <option value="" disabled selected>Select a model first</option>
             </select>
+          </div>
+
+          <!-- Language Selection (Dynamic) -->
+          <div class="form-group language-group hidden" id="language-group">
+            <label for="language-select" class="form-label">Select Language</label>
+            <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+              <select id="language-select" name="language" class="form-input select-input">
+                <option value="" selected>Auto-detect / Default</option>
+              </select>
+              <input 
+                type="text" 
+                id="language-custom-input" 
+                placeholder="Enter BCP-47 (e.g. de-DE)" 
+                class="form-input hidden"
+                style="margin-top: 0.25rem;"
+              >
+            </div>
           </div>
 
           <div class="form-group r2-group">
