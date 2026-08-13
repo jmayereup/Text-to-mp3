@@ -144,6 +144,18 @@ function selectModel(modelId) {
     }
   }
 
+  // Toggle Voice Guide Prompt UI Controls
+  const instructionsGroup = document.getElementById('instructions-group');
+  const instructionsInput = document.getElementById('instructions-input');
+  if (modelData && modelData.supportsInstructions) {
+    if (instructionsGroup) instructionsGroup.classList.remove('hidden');
+    if (instructionsInput && !instructionsInput.value.trim()) {
+      instructionsInput.value = modelData.defaultInstructions || 'A slow clear voice suitable for ESL students.';
+    }
+  } else {
+    if (instructionsGroup) instructionsGroup.classList.add('hidden');
+  }
+
   // Populate Voice Dropdown Options
   populateVoices(modelId);
   
@@ -340,6 +352,16 @@ async function handleFormSubmit(event) {
     }
   }
 
+  // Extract instructions if visible
+  let instructions = '';
+  const instructionsGroup = document.getElementById('instructions-group');
+  if (instructionsGroup && !instructionsGroup.classList.contains('hidden')) {
+    const instructionsInput = document.getElementById('instructions-input');
+    if (instructionsInput) {
+      instructions = instructionsInput.value.trim();
+    }
+  }
+
   if (!text || !selectedModelId) return;
 
   // Toggle UI States to Loading
@@ -357,6 +379,7 @@ async function handleFormSubmit(event) {
         modelId: selectedModelId,
         voice,
         language,
+        instructions,
         pushToR2
       })
     });
@@ -410,6 +433,7 @@ async function handleFormSubmit(event) {
       modelName: friendlyModelName,
       voiceName: voice,
       languageName: language || 'default',
+      instructionsPrompt: instructions || '',
       compressedSizeKb: data.stats.compressedSizeKb,
       compressionRatio: data.stats.compressionRatio,
       localUrl: data.localUrl,
@@ -525,6 +549,10 @@ function loadHistory() {
             ${item.languageName && item.languageName !== 'default' ? `
               <span class="history-meta-divider">•</span>
               <span>Lang: ${item.languageName}</span>
+            ` : ''}
+            ${item.instructionsPrompt ? `
+              <span class="history-meta-divider">•</span>
+              <span title="Guide: ${item.instructionsPrompt}">Prompt: "${item.instructionsPrompt.substring(0, 30)}${item.instructionsPrompt.length > 30 ? '...' : ''}"</span>
             ` : ''}
             <span class="history-meta-divider">•</span>
             <span>${item.timestamp}</span>

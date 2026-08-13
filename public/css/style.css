@@ -193,6 +193,18 @@ body {
   color: var(--color-secondary);
 }
 
+.prompt-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background-color: rgba(16, 185, 129, 0.15);
+  color: var(--color-success);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  display: inline-flex;
+  align-items: center;
+}
+
 /* Model Select Cards Grid */
 .models-grid {
   display: grid;

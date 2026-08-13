@@ -31,6 +31,7 @@ const DEFAULT_MODELS = {
     ],
     response_format: 'pcm',
     supportsLanguage: true,
+    supportsInstructions: false,
     languages: [
       { code: 'en-US', name: 'English (United States)' },
       { code: 'en-GB', name: 'English (United Kingdom)' },
@@ -59,6 +60,8 @@ const DEFAULT_MODELS = {
     ],
     response_format: 'mp3',
     supportsLanguage: true,
+    supportsInstructions: true,
+    defaultInstructions: 'A slow clear voice suitable for ESL students.',
     languages: [
       { code: 'en-US', name: 'English (United States)' },
       { code: 'en-GB', name: 'English (United Kingdom)' },
@@ -84,6 +87,8 @@ const DEFAULT_MODELS = {
     ],
     response_format: 'pcm',
     supportsLanguage: true,
+    supportsInstructions: true,
+    defaultInstructions: 'A slow clear voice suitable for ESL students.',
     languages: [
       { code: 'en-US', name: 'English (United States)' },
       { code: 'en-GB', name: 'English (United Kingdom)' },
@@ -168,7 +173,7 @@ async function getModels() {
 /**
  * Sends a TTS generation request to OpenRouter and returns the output audio buffer.
  */
-async function generateSpeech(modelId, text, voice, language) {
+async function generateSpeech(modelId, text, voice, language, instructions) {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
     throw new Error('OPENROUTER_API_KEY is not configured in the environment variables.');
@@ -189,21 +194,30 @@ async function generateSpeech(modelId, text, voice, language) {
     payload.voice = voice;
   }
 
+  // Include guide prompt instructions if provided
+  if (instructions && instructions.trim()) {
+    payload.instructions = instructions.trim();
+  }
+
   // Handle language configuration
   if (language) {
     if (modelId === 'google/gemini-3.1-flash-tts-preview') {
-      payload.provider = {
-        options: {
-          google: {
-            speech_config: {
-              language_code: language
-            }
-          }
-        }
+      payload.provider = payload.provider || { options: { google: {} } };
+      payload.provider.options = payload.provider.options || {};
+      payload.provider.options.google = payload.provider.options.google || {};
+      payload.provider.options.google.speech_config = {
+        language_code: language
       };
     } else {
       payload.language = language;
     }
+  }
+
+  if (instructions && instructions.trim() && modelId === 'google/gemini-3.1-flash-tts-preview') {
+    payload.provider = payload.provider || { options: { google: {} } };
+    payload.provider.options = payload.provider.options || {};
+    payload.provider.options.google = payload.provider.options.google || {};
+    payload.provider.options.google.instructions = instructions.trim();
   }
 
   // Standard OpenRouter Audio Speech Endpoint

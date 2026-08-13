@@ -77,6 +77,26 @@
           <input type="hidden" name="modelId" id="selected-model-id" required>
         </div>
 
+        <!-- Voice Guide Prompt / Instructions (For supported models) -->
+        <div class="form-group instructions-group hidden" id="instructions-group" style="margin-bottom: 1.5rem;">
+          <label for="instructions-input" class="form-label" style="display: flex; justify-content: space-between; align-items: center;">
+            <span>Voice Guide Prompt</span>
+            <span class="prompt-badge"><span class="material-icons-round" style="font-size: 14px; vertical-align: middle; margin-right: 3px;">auto_awesome</span>Supported Model</span>
+          </label>
+          <input 
+            type="text" 
+            id="instructions-input" 
+            name="instructions" 
+            placeholder="e.g. A slow clear voice suitable for ESL students." 
+            value="A slow clear voice suitable for ESL students."
+            class="form-input"
+          >
+          <p class="input-tip">
+            <span class="material-icons-round">record_voice_over</span>
+            Guide the voice tone, speed, accent, or emotion (e.g. slow pacing, clear pronunciation).
+          </p>
+        </div>
+
         <!-- Voice, Language and R2 Configuration -->
         <div class="controls-row" id="controls-row">
           <div class="form-group voice-group">

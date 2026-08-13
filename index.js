@@ -92,7 +92,7 @@ app.get('/', async (req, res) => {
 
 // TTS Conversion and compression API
 app.post('/api/convert', async (req, res) => {
-  const { text, modelId, voice, language, pushToR2 } = req.body;
+  const { text, modelId, voice, language, instructions, pushToR2 } = req.body;
 
   if (!text || !modelId) {
     return res.status(400).json({ success: false, error: 'Text and Model ID are required.' });
@@ -100,8 +100,8 @@ app.post('/api/convert', async (req, res) => {
 
   try {
     // 1. Call OpenRouter to generate raw audio stream
-    console.log(`Generating speech via OpenRouter using model: ${modelId}, voice: ${voice}, language: ${language || 'default'}...`);
-    const rawAudioBuffer = await openrouter.generateSpeech(modelId, text, voice, language);
+    console.log(`Generating speech via OpenRouter using model: ${modelId}, voice: ${voice}, language: ${language || 'default'}, instructions: ${instructions || 'none'}...`);
+    const rawAudioBuffer = await openrouter.generateSpeech(modelId, text, voice, language, instructions);
 
     // 2. Compress audio using ffmpeg-static to ~50kbps VBR MP3
     console.log('Compressing audio to low-bitrate MP3 VBR...');
