@@ -1,9 +1,27 @@
 // State
 let selectedModelId = '';
 
+// PocketBase Authentication Client
+let pb = null;
+try {
+  const pbEndpoint = window.POCKETBASE_URL || 'https://pb.teacherjake.com';
+  pb = new PocketBase(pbEndpoint);
+  pb.autoCancellation(false);
+} catch (err) {
+  console.warn('[TJ-TTS] PocketBase SDK failed to initialize:', err);
+}
+
+function isCurrentUserAdmin() {
+  if (!pb || !pb.authStore.isValid) return false;
+  const rec = pb.authStore.record;
+  if (!rec) return pb.authStore.isSuperuser || false;
+  return rec.isAdmin === true || rec.role === 'admin' || pb.authStore.isSuperuser || false;
+}
+
 // On page load
 document.addEventListener('DOMContentLoaded', () => {
   loadHistory();
+  initAuth();
   
   // Handle custom language input show/hide
   const langSelect = document.getElementById('language-select');
@@ -42,13 +60,32 @@ function updateCharCounter(textarea) {
 function checkSubmitButtonState() {
   const text = document.getElementById('text-input').value.trim();
   const submitBtn = document.getElementById('submit-button');
+  if (!submitBtn) return;
   
+  const isLoggedIn = pb && pb.authStore.isValid;
+  const isAdmin = isCurrentUserAdmin();
+
+  if (!isLoggedIn) {
+    submitBtn.setAttribute('disabled', 'true');
+    submitBtn.innerHTML = '<span class="material-icons-round">lock</span><span>Sign In to Generate</span>';
+    return;
+  }
+
+  if (!isAdmin) {
+    submitBtn.setAttribute('disabled', 'true');
+    submitBtn.innerHTML = '<span class="material-icons-round">block</span><span>Admin Access Required</span>';
+    return;
+  }
+
   if (text.length > 0 && selectedModelId) {
     submitBtn.removeAttribute('disabled');
+    submitBtn.innerHTML = '<span class="material-icons-round">play_arrow</span><span>Generate Speech</span>';
   } else {
     submitBtn.setAttribute('disabled', 'true');
+    submitBtn.innerHTML = '<span class="material-icons-round">play_arrow</span><span>Generate Speech</span>';
   }
 }
+
 
 // Debounce helper to delay execution for typing
 function debounce(func, wait) {
@@ -362,6 +399,16 @@ async function handleFormSubmit(event) {
     }
   }
 
+  if (!pb || !pb.authStore.isValid) {
+    openAuthModal();
+    return;
+  }
+
+  if (!isCurrentUserAdmin()) {
+    alert('Access Denied: Voice generation is restricted to Administrator accounts.');
+    return;
+  }
+
   if (!text || !selectedModelId) return;
 
   // Toggle UI States to Loading
@@ -369,11 +416,17 @@ async function handleFormSubmit(event) {
   showState('loading');
 
   try {
+    const headers = {
+      'Content-Type': 'application/json'
+    };
+
+    if (pb && pb.authStore.isValid && pb.authStore.token) {
+      headers['Authorization'] = `Bearer ${pb.authStore.token}`;
+    }
+
     const response = await fetch('/api/convert', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
+      headers,
       body: JSON.stringify({
         text,
         modelId: selectedModelId,
@@ -511,6 +564,16 @@ function saveToHistory(item) {
   loadHistory();
 }
 
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 function loadHistory() {
   const container = document.getElementById('history-items-list');
   let history = [];
@@ -532,39 +595,39 @@ function loadHistory() {
     div.className = 'history-item';
     
     // Play button triggers playing either local url or r2 url
-    const playUrl = item.localUrl;
-    const downloadUrl = item.r2Url || item.localUrl;
+    const playUrl = item.localUrl || item.r2Url || '';
+    const downloadUrl = item.r2Url || item.localUrl || '#';
+    const modelDisplay = item.modelName || 'TTS';
+    const voiceDisplay = item.voiceName ? `Voice: ${item.voiceName}` : 'Voice: default';
+    const hasLang = item.languageName && item.languageName !== 'default';
+    const hasPrompt = !!item.instructionsPrompt;
+    const hasSavings = item.compressionRatio && parseFloat(item.compressionRatio) > 0;
     
     div.innerHTML = `
-      <div class="history-item-left">
-        <button type="button" class="play-history-btn" onclick="playHistoryAudio('${playUrl}')" title="Play Audio">
-          <span class="material-icons-round">play_arrow</span>
-        </button>
-        <div class="history-text-details">
-          <span class="history-text-preview" title="${item.textPreview}">${item.textPreview}</span>
-          <div class="history-meta">
-            <span>${item.modelName}</span>
-            <span class="history-meta-divider">•</span>
-            <span>Voice: ${item.voiceName || 'default'}</span>
-            ${item.languageName && item.languageName !== 'default' ? `
-              <span class="history-meta-divider">•</span>
-              <span>Lang: ${item.languageName}</span>
-            ` : ''}
-            ${item.instructionsPrompt ? `
-              <span class="history-meta-divider">•</span>
-              <span title="Guide: ${item.instructionsPrompt}">Prompt: "${item.instructionsPrompt.substring(0, 30)}${item.instructionsPrompt.length > 30 ? '...' : ''}"</span>
-            ` : ''}
-            <span class="history-meta-divider">•</span>
-            <span>${item.timestamp}</span>
+      <button type="button" class="play-history-btn" onclick="playHistoryAudio('${encodeURI(playUrl)}')" title="Play Audio">
+        <span class="material-icons-round">play_arrow</span>
+      </button>
+      
+      <div class="history-item-body">
+        <div class="history-item-header">
+          <span class="history-text-preview" title="${escapeHtml(item.textPreview)}">${escapeHtml(item.textPreview)}</span>
+          <div class="history-item-stats">
+            <span class="history-size-badge">${escapeHtml(String(item.compressedSizeKb))} KB</span>
+            ${hasSavings ? `<span class="history-saved-badge">Saved ${escapeHtml(String(item.compressionRatio))}%</span>` : ''}
           </div>
         </div>
-      </div>
-      <div class="history-item-right">
-        <div class="history-text-details" style="text-align: right; margin-right: 0.5rem; font-size: 0.75rem;">
-          <span style="color: #fff; font-weight: 600;">${item.compressedSizeKb} KB</span>
-          <span style="color: var(--color-success); font-size: 0.7rem;">Saved ${item.compressionRatio}%</span>
+        
+        <div class="history-meta">
+          <span class="history-badge history-badge-model" title="${escapeHtml(modelDisplay)}">${escapeHtml(modelDisplay)}</span>
+          <span class="history-badge" title="${escapeHtml(voiceDisplay)}">${escapeHtml(voiceDisplay)}</span>
+          ${hasLang ? `<span class="history-badge" title="Language: ${escapeHtml(item.languageName)}">Lang: ${escapeHtml(item.languageName)}</span>` : ''}
+          ${hasPrompt ? `<span class="history-badge history-badge-prompt" title="Guide: ${escapeHtml(item.instructionsPrompt)}">Prompt</span>` : ''}
+          <span class="history-timestamp">${escapeHtml(item.timestamp || '')}</span>
         </div>
-        <a href="${downloadUrl}" class="history-action-btn" download title="${item.r2Url ? 'Get R2 Link' : 'Download Local File'}">
+      </div>
+
+      <div class="history-item-actions">
+        <a href="${escapeHtml(downloadUrl)}" class="history-action-btn" download title="${item.r2Url ? 'Get R2 Link' : 'Download Local File'}">
           <span class="material-icons-round">${item.r2Url ? 'cloud' : 'download'}</span>
         </a>
       </div>
@@ -597,3 +660,201 @@ function playHistoryAudio(url) {
   document.getElementById('r2-link-box').classList.add('hidden');
   document.getElementById('r2-error-box').classList.add('hidden');
 }
+
+// ---------------------------------------------------------------------------
+// PocketBase Authentication Helpers
+// ---------------------------------------------------------------------------
+
+function initAuth() {
+  if (!pb) return;
+
+  // Listen to auth changes (login, logout, refresh)
+  pb.authStore.onChange((token, model) => {
+    updateAuthUI();
+    checkSubmitButtonState();
+  });
+
+  // Attempt auto-refresh on mount if token is stored
+  if (pb.authStore.isValid) {
+    pb.collection('users')
+      .authRefresh()
+      .catch(() => {
+        // Try superusers refresh if regular user failed
+        if (pb.collection('_superusers')) {
+          pb.collection('_superusers').authRefresh().catch(() => {});
+        }
+      })
+      .finally(() => {
+        updateAuthUI();
+        checkSubmitButtonState();
+      });
+  }
+
+  updateAuthUI();
+  checkSubmitButtonState();
+}
+
+function updateAuthUI() {
+  const loggedOutBox = document.getElementById('auth-logged-out');
+  const loggedInBox = document.getElementById('auth-logged-in');
+  const userEmailDisplay = document.getElementById('user-email-display');
+  const roleBadge = document.getElementById('user-role-badge');
+  const accessBanner = document.getElementById('access-banner');
+  const accessBannerText = document.getElementById('access-banner-text');
+  const bannerLoginBtn = document.getElementById('banner-login-btn');
+  const accessBannerIcon = document.getElementById('access-banner-icon');
+
+  if (!pb || !pb.authStore.isValid) {
+    // Logged Out
+    if (loggedOutBox) loggedOutBox.classList.remove('hidden');
+    if (loggedInBox) loggedInBox.classList.add('hidden');
+
+    if (accessBanner) {
+      accessBanner.classList.remove('hidden', 'banner-warning', 'banner-admin');
+      accessBanner.classList.add('banner-logged-out');
+    }
+    if (accessBannerIcon) accessBannerIcon.textContent = 'lock';
+    if (accessBannerText) {
+      accessBannerText.innerHTML = 'Sign in with an <strong>Administrator</strong> account to generate audio.';
+    }
+    if (bannerLoginBtn) bannerLoginBtn.classList.remove('hidden');
+  } else {
+    // Logged In
+    const record = pb.authStore.record;
+    const email = record?.email || record?.username || 'Authenticated User';
+    const isAdmin = isCurrentUserAdmin();
+
+    if (loggedOutBox) loggedOutBox.classList.add('hidden');
+    if (loggedInBox) loggedInBox.classList.remove('hidden');
+    if (userEmailDisplay) userEmailDisplay.textContent = email;
+
+    if (roleBadge) {
+      if (isAdmin) {
+        roleBadge.textContent = 'Admin';
+        roleBadge.className = 'user-role-badge badge-admin';
+      } else {
+        roleBadge.textContent = 'User (Non-Admin)';
+        roleBadge.className = 'user-role-badge badge-user';
+      }
+    }
+
+    if (accessBanner) {
+      if (isAdmin) {
+        // Admin: hide barrier banner completely
+        accessBanner.classList.add('hidden');
+      } else {
+        // Non-admin: show restricted warning
+        accessBanner.classList.remove('hidden', 'banner-logged-out', 'banner-admin');
+        accessBanner.classList.add('banner-warning');
+        if (accessBannerIcon) accessBannerIcon.textContent = 'block';
+        if (accessBannerText) {
+          accessBannerText.innerHTML = '<strong>Access Restricted:</strong> Text-to-Speech generation is enabled for administrator accounts only.';
+        }
+        if (bannerLoginBtn) bannerLoginBtn.classList.add('hidden');
+      }
+    }
+  }
+}
+
+function openAuthModal() {
+  const modal = document.getElementById('auth-modal');
+  const errorBox = document.getElementById('auth-error-msg');
+  if (errorBox) errorBox.classList.add('hidden');
+  if (modal) {
+    modal.classList.remove('hidden');
+    const emailInput = document.getElementById('auth-email');
+    if (emailInput) {
+      setTimeout(() => emailInput.focus(), 50);
+    }
+  }
+}
+
+function closeAuthModal() {
+  const modal = document.getElementById('auth-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+function handleModalOverlayClick(event) {
+  if (event.target && event.target.id === 'auth-modal') {
+    closeAuthModal();
+  }
+}
+
+async function handleLoginFormSubmit(event) {
+  event.preventDefault();
+  if (!pb) return;
+
+  const emailInput = document.getElementById('auth-email');
+  const passwordInput = document.getElementById('auth-password');
+  const submitBtn = document.getElementById('auth-submit-btn');
+  const errorBox = document.getElementById('auth-error-msg');
+  const errorText = document.getElementById('auth-error-text');
+
+  const email = emailInput ? emailInput.value.trim() : '';
+  const password = passwordInput ? passwordInput.value : '';
+
+  if (!email || !password) return;
+
+  if (submitBtn) {
+    submitBtn.setAttribute('disabled', 'true');
+    submitBtn.innerHTML = '<span class="material-icons-round spinner">autorenew</span><span>Signing in...</span>';
+  }
+  if (errorBox) errorBox.classList.add('hidden');
+
+  try {
+    let authSuccess = false;
+    let authError = null;
+
+    // 1. Try standard 'users' collection
+    try {
+      await pb.collection('users').authWithPassword(email, password);
+      authSuccess = true;
+    } catch (userErr) {
+      authError = userErr;
+    }
+
+    // 2. If standard user failed, try _superusers / admins
+    if (!authSuccess) {
+      try {
+        if (pb.collection('_superusers')) {
+          await pb.collection('_superusers').authWithPassword(email, password);
+          authSuccess = true;
+        } else if (pb.admins) {
+          await pb.admins.authWithPassword(email, password);
+          authSuccess = true;
+        }
+      } catch (adminErr) {
+        // Fallback error
+      }
+    }
+
+    if (!authSuccess) {
+      throw authError || new Error('Invalid email or password.');
+    }
+
+    // Login successful
+    closeAuthModal();
+    if (passwordInput) passwordInput.value = '';
+    updateAuthUI();
+    checkSubmitButtonState();
+  } catch (err) {
+    console.error('[TJ-TTS Auth] Login error:', err);
+    if (errorBox && errorText) {
+      errorText.textContent = err.message || 'Failed to authenticate with PocketBase.';
+      errorBox.classList.remove('hidden');
+    }
+  } finally {
+    if (submitBtn) {
+      submitBtn.removeAttribute('disabled');
+      submitBtn.innerHTML = '<span class="material-icons-round">login</span><span>Sign In</span>';
+    }
+  }
+}
+
+function handleLogout() {
+  if (!pb) return;
+  pb.authStore.clear();
+  updateAuthUI();
+  checkSubmitButtonState();
+}
+

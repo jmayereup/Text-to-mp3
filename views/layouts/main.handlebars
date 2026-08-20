@@ -21,6 +21,11 @@
 </head>
 <body>
   {{{body}}}
+  <!-- PocketBase JavaScript Client SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/pocketbase@0.25.0/dist/pocketbase.umd.js"></script>
+  <script>
+    window.POCKETBASE_URL = "{{pocketbaseUrl}}";
+  </script>
   <!-- Client Operations Script -->
   <script src="/js/client.js"></script>
 </body>
